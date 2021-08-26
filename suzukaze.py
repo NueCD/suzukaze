@@ -13,8 +13,8 @@ import youtube_dl
 """
 Init bot stuff.
 """
-TOKEN = 'ODgwMzczNTk1NzYxNjk2ODM4.YSdVzQ.Jbk7-HBrTfSqw_3SvTXsC0C1rPU'
-PREFIX = '$'
+TOKEN = ''
+PREFIX = ''
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
