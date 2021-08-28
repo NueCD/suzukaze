@@ -30,7 +30,7 @@ ffmpeg_options = { 'options': '-vn' }
 ytdl_format_options = {
     'format': 'bestaudio/best',
     'restrictfilenames': True,
-    'noplaylist': False,
+    'noplaylist': True,
     'nocheckcertificate': True,
     'ignoreerrors': False,
     'logtostderr': False,
@@ -57,10 +57,16 @@ class PlayerSource(discord.PCMVolumeTransformer):
     async def from_url(cls, url, *, loop=None, stream=False):
         # wtf is this
         loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
-
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
+        
         if 'entries' in data:
-            data = data['entries'][0]
+            return 'playlist'
+
+        # Don'r allow livestreams.
+        if data['is_live']:
+            return 'is_live'
+
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
         
         filename = ytdl.prepare_filename(data)
         return [data['title'], filename]
@@ -91,7 +97,6 @@ async def auto_leave(voice):
 """
 Commands.
 """
-"""
 # Join voice channel.
 @bot.command(name='join', help='Join the voice channel.')
 async def join(ctx):
@@ -100,7 +105,10 @@ async def join(ctx):
         return 1
     
     await ctx.message.author.voice.channel.connect()
-"""
+    await ctx.send('The bot needs to download songs before playing them. If you queue something long the bot will be busy for a while and fill my server with large files.\nPlease use with respect.\n\nUse command $help for instructions.')
+    
+    voice = ctx.message.guild.voice_client
+    auto_leaver = asyncio.create_task(auto_leave(voice))
 
 # Leave voice channel.
 @bot.command(name='leave', help='Leave the voice channel.')
@@ -117,25 +125,50 @@ async def leave(ctx):
 async def play(ctx, url):
     voice = ctx.message.guild.voice_client
     
+    # Check if we are in voice.
     if not voice:
-        if not ctx.message.author.voice:
-            await ctx.send('You must be in a voice channel to play.')
-            return
-        await ctx.message.author.voice.channel.connect()
-        voice = ctx.message.guild.voice_client
+        await ctx.send('Use join command first.')
+        return
 
+    # Check if the person queueing songs are in voice.
+    if not ctx.message.author.voice:
+        await ctx.send('You must be in a voice channel to play.')
+        return
+
+    # Check if we are connected to voice without issues.
     if not voice.is_connected():
         await ctx.send('Voice is not connected properly. Probably issues connecting to voice...')
         return
+    
+    if not 'youtu' in url:
+        await ctx.send('This does not look like a youtube link.')
+        return
 
+    # Playlists are not supported.
+    if 'list=' in url:
+        await ctx.send('This is a playlist. Currently not supporting this.')
+        return
+        
+    # Start looking for the song and add it to queue.
     async with ctx.typing():
         song = await PlayerSource.from_url(url, loop=bot.loop)
+        
+        # No support for livestreams-
+        if song == 'is_live':
+            await ctx.send('This is a livestream. Currently not supporting this.')
+            return
+
+        # No support for playlists.
+        if song == 'playlist':
+            await ctx.send('This is a playlist. Currently not supporting this.')
+            return
+
         song_queue.append(song)
         await ctx.send('Added to queue: %s' % song[0])
     
+    # Start the player in the background if it is not running.
     if not voice.is_playing():
         player = asyncio.create_task(start_playing(ctx, voice))
-        auto_leaver = asyncio.create_task(auto_leave(voice))
 
 # Show the queue
 @bot.command(name='queue', help='Show the queue.')
