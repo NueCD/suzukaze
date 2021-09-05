@@ -39,7 +39,7 @@ print('Init bot...')
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
-song_queue = []
+song_queue = {}
 
 """
 Init youtube_dl stuff.
@@ -92,10 +92,10 @@ class PlayerSource(discord.PCMVolumeTransformer):
         return [data['title'], filename]
 
 # Play the queue and leave efter a while.
-async def start_playing(ctx, voice):
-        while len(song_queue):
+async def start_playing(ctx, server, voice):
+        while len(song_queue[server]):
             time = 0
-            song = song_queue.pop(0)
+            song = song_queue[server].pop(0)
             voice.play(discord.FFmpegPCMAudio(executable='ffmpeg', source=song[1]))
             await ctx.send('Now playing: %s' % song[0])
             while voice.is_playing():
@@ -133,16 +133,18 @@ async def join(ctx):
 # Leave voice channel.
 @bot.command(name='leave', help='Leave the voice channel.')
 async def leave(ctx):
+    server = ctx.message.guild.id
     voice = ctx.message.guild.voice_client
     if voice:
         await voice.disconnect()
-        song_queue = []
+        song_queue[server] = []
     else:
         await ctx.send('Not in voice atm.')
 
 # Play a song.
 @bot.command(name='play', help='Play an url.')
 async def play(ctx, url):
+    server = ctx.message.guild.id
     voice = ctx.message.guild.voice_client
     
     # Check if we are in voice.
@@ -182,20 +184,26 @@ async def play(ctx, url):
         if song == 'playlist':
             await ctx.send('This is a playlist. Currently not supporting this.')
             return
-
-        song_queue.append(song)
+        try:
+            song_queue[server].append(song)
+        except KeyError:
+            song_queue.update({server: [song]})
         await ctx.send('Added to queue: %s' % song[0])
     
     # Start the player in the background if it is not running.
     if not voice.is_playing():
-        player = asyncio.create_task(start_playing(ctx, voice))
+        player = asyncio.create_task(start_playing(ctx, server, voice))
 
 # Show the queue
 @bot.command(name='queue', help='Show the queue.')
 async def queue(ctx):
-    if len(song_queue):
-        await ctx.send('Queue:\n' + '\n'.join([i[0] for i in song_queue]))
-    else:
+    server = ctx.message.guild.id
+    try:
+        if len(song_queue[server]):
+            await ctx.send('Queue:\n' + '\n'.join([i[0] for i in song_queue[server]]))
+        else:
+            await ctx.send('Queue is empty.')
+    except KeyError:
         await ctx.send('Queue is empty.')
 
 # Skip song.
