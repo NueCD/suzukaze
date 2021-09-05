@@ -174,7 +174,7 @@ async def play(ctx, url):
 @bot.command(name='queue', help='Show the queue.')
 async def queue(ctx):
     if len(song_queue):
-        await ctx.send('Queue:\n' + '\n'.join(song_queue))
+        await ctx.send('Queue:\n' + '\n'.join([i[0] for i in song_queue]))
     else:
         await ctx.send('Queue is empty.')
 
