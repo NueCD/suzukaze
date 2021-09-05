@@ -13,8 +13,28 @@ import youtube_dl
 """
 Init bot stuff.
 """
+print('Loading config...')
+
 TOKEN = ''
 PREFIX = ''
+
+try:
+    with open('../config.txt', 'r') as f:
+        lines = f.readlines()
+        TOKEN = lines[0].strip('\n')
+        PREFIX = lines[1].strip('\n')
+except:
+    pass
+
+if not TOKEN:
+    print('Add a token to the config.')
+    exit(1)
+
+if not PREFIX:
+    print('Add a prefix to the config.')
+    exit(1)
+
+print('Init bot...')
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
@@ -190,4 +210,5 @@ async def skip(ctx):
 """
 Start the bot.
 """
+print('Started...')
 bot.run(TOKEN)

@@ -1,0 +1,3 @@
+- Create separate queues depending on which server is using the bot.
+- Make so that files are downloaded in the cache directory instead of working directory.
+- Download songs in the background so it does not have to wait.
